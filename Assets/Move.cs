@@ -10,11 +10,13 @@ namespace Assets {
         private GameObject beaten;
         private Vector2Int oldPoint;
         private Vector2Int endPoint;
-        public Move(GameObject moved, GameObject beaten, Vector2Int oldPoint, Vector2Int endPoint) {
+        private bool isFirstTimeMoved;
+        public Move(GameObject moved, GameObject beaten, Vector2Int oldPoint, Vector2Int endPoint,bool isFirstTimeMoved) {
             this.moved = moved;
             this.beaten = beaten;
             this.oldPoint = oldPoint;
             this.endPoint = endPoint;
+            this.isFirstTimeMoved = isFirstTimeMoved;
         }
 
         public GameObject Moved {
@@ -38,6 +40,12 @@ namespace Assets {
         public Vector2Int EndPoint {
             get {
                 return endPoint;
+            }
+        }
+
+        public bool IsFirstTimeMoved {
+            get {
+                return isFirstTimeMoved;
             }
         }
 

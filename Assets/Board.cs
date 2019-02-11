@@ -28,6 +28,7 @@ namespace Assets {
         private bool isSelected;
         private Team makesMove;
 
+        private const int MINIMAX_DEPTH = 3;
         private bool isPlaying = false;
         private bool isFinished = false;
         private string winner;
@@ -174,9 +175,10 @@ namespace Assets {
 
         public void moveFigure(Vector2Int oldPos, Vector2Int newPos) {
             if (newPos.x >= 0 && newPos.x < 8 && newPos.y >= 0 && newPos.y < 8 && board[oldPos.x, oldPos.y] != null) {
-                Move newMove = new Move(board[oldPos.x, oldPos.y], board[newPos.x, newPos.y], oldPos, newPos);
-                moves.Add(newMove);
                 Figure fig = board[oldPos.x, oldPos.y].GetComponent<Figure>();
+                Move newMove = new Move(board[oldPos.x, oldPos.y], board[newPos.x, newPos.y], oldPos, newPos,!fig.WasMoved);
+                moves.Add(newMove);
+
                 fig.WasMoved = true;
                 if (board[newPos.x, newPos.y] != null) {
                    /* Figure figNew = board[newPos.x, newPos.y].GetComponent<Figure>();
@@ -194,6 +196,7 @@ namespace Assets {
                 board[newPos.x, newPos.y] = board[oldPos.x, oldPos.y];
                 board[oldPos.x, oldPos.y] = null;
                 board[newPos.x, newPos.y].transform.position = BoardHandler.toWorldPos(newPos);
+                changeTurn();
             }
         }
         public void undoMove() {
@@ -202,9 +205,12 @@ namespace Assets {
                 Move last = m[m.Length - 1];
                 if (last.Beaten != null) {
                     last.Beaten.SetActive(true);
-                    board[last.EndPoint.x, last.EndPoint.y] = last.Beaten;
                 }
+                Figure fig = last.Moved.GetComponent<Figure>();
+                fig.WasMoved = !last.IsFirstTimeMoved;
+                board[last.EndPoint.x, last.EndPoint.y] = last.Beaten;
                 board[last.OldPoint.x, last.OldPoint.y] = last.Moved;
+
                 last.Moved.transform.position = BoardHandler.toWorldPos(last.OldPoint);
                 moves.Remove(last);
                 changeTurn();
@@ -340,17 +346,34 @@ namespace Assets {
             }
         }
 
-        public List<Move> allBotMoves() {
+        public int evaluateBoard() {
+            int res = 0;
+            foreach(GameObject cell in board) {
+                if (cell == null) {
+                    continue;
+                }
+                Figure f = cell.GetComponent<Figure>();               
+                if(f.team == Team.BLACK) {
+                    res -= Convert.ToInt32(f.Type);
+                } else {
+                    res += Convert.ToInt32(f.Type);
+                }
+                
+            }
+            return res;
+        }
+        public List<Move> allMoves() {
             List<Move> all = new List<Move>();
             for (int i = 0; i < 8; i++) {
                 for (int j = 0; j < 8; j++) {
                     if (board[i,j] != null) {
                         Figure f = board[i, j].GetComponent<Figure>();
-                        if (f.team == Team.BLACK) {
+                        if (f.team == makesMove) {
                             Vector2Int gamePos = new Vector2Int(i,j);
                             List<Vector2Int> figMoves = determineMoves(gamePos);
                             foreach (Vector2Int move in figMoves) {
-                                all.Add(new Move(board[i, j], null, gamePos, move));
+                                Figure fig = board[i, j].GetComponent<Figure>();
+                                all.Add(new Move(board[i, j], null, gamePos, move,!fig.WasMoved));
                             }
                         }
                     }
@@ -359,11 +382,51 @@ namespace Assets {
             }
             return all;
         }
+        public int minimax(int depth,bool isMaximizing) {
+            if (depth == 0) {
+                return -evaluateBoard();
+            }
+            if (isMaximizing) {
+                List<Move> all = allMoves();
+                Move[] m = all.ToArray();
+                int max = int.MinValue;
+                for (int i = 0; i < m.Length; i++) {
+                    moveFigure(m[i].OldPoint, m[i].EndPoint);
+                    max = Math.Max(max, minimax(depth-1, !isMaximizing));
+                    undoMove();
+                }
+                return max;
+            } else {
+                List<Move> all = allMoves();
+                Move[] m = all.ToArray();
+                int min = int.MaxValue;
+                for (int i = 0; i < m.Length; i++) {
+                    moveFigure(m[i].OldPoint, m[i].EndPoint);
+                    min = Math.Max(min, minimax(depth - 1, !isMaximizing));
+                    undoMove();
+                }
+                return min;
+            }
+        }
         public Move determineBestBotMove() {
-            List<Move> all = allBotMoves();
+            List<Move> all = allMoves();
             Move[] m = all.ToArray();
-            System.Random r = new System.Random();
-            return m[r.Next(m.Length)];
+            //System.Random r = new System.Random();
+            //return m[r.Next(m.Length)];         /** Random move**/
+            int maxi = 0;
+            int max = int.MinValue;
+            
+            for(int i = 0; i < m.Length; i++) {
+                moveFigure(m[i].OldPoint, m[i].EndPoint);
+                int eval = minimax(MINIMAX_DEPTH-1,true);
+                if (eval > max) {
+                    max = eval;
+                    maxi = i;
+                }
+                undoMove();
+            }
+            return m[maxi];
+
         }
 
         public void OnGUI() {
@@ -554,7 +617,6 @@ namespace Assets {
                                 }
                                 moveCells.Clear();
                                 moveFigure(selectedFigure, cell);
-                                changeTurn();
                             }
                         }
                     }
@@ -598,7 +660,7 @@ namespace Assets {
                 } else {
                     Move m = determineBestBotMove();
                     moveFigure(m.OldPoint,m.EndPoint);
-                    changeTurn();
+                    //changeTurn();
                 }
                 checkWon();
             }
