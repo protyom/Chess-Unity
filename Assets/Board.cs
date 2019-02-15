@@ -32,6 +32,7 @@ namespace Assets {
         private bool isPlaying = false;
         private bool isFinished = false;
         private bool isInstruction = false;
+        private bool imThinking = false;
         private string winner;
 
         private bool isBotPlaying = false;
@@ -189,8 +190,10 @@ namespace Assets {
                             fig.WasMoved = true;
                             fig2.WasMoved = true;
                             board[6, oldPos.y] = board[oldPos.x, oldPos.y];
+                            board[oldPos.x, oldPos.y] = null;
                             board[6, oldPos.y].transform.position = BoardHandler.toWorldPos(new Vector2Int(6, oldPos.y));
                             board[5, oldPos.y] = board[newPos.x, newPos.y];
+                            board[newPos.x, newPos.y] = null;
                             board[5, oldPos.y].transform.position = BoardHandler.toWorldPos(new Vector2Int(5, oldPos.y));
                         } else {
                             doubleMove = new List<Move>();
@@ -200,10 +203,25 @@ namespace Assets {
                             fig.WasMoved = true;
                             fig2.WasMoved = true;
                             board[2, oldPos.y] = board[oldPos.x, oldPos.y];
+                            board[oldPos.x, oldPos.y] = null;
                             board[2, oldPos.y].transform.position = BoardHandler.toWorldPos(new Vector2Int(2, oldPos.y));
                             board[3, oldPos.y] = board[newPos.x, newPos.y];
+                            board[newPos.x, newPos.y] = null;
                             board[3, oldPos.y].transform.position = BoardHandler.toWorldPos(new Vector2Int(3, oldPos.y));
                         }
+                    } else {
+                        Move newMove = new Move(board[oldPos.x, oldPos.y], board[newPos.x, newPos.y], oldPos, newPos, !fig.WasMoved);
+
+                        doubleMove.Add(newMove);
+                        moves.Add(doubleMove);
+
+                        fig.WasMoved = true;
+                        if (board[newPos.x, newPos.y] != null) {
+                            board[newPos.x, newPos.y].SetActive(false);
+                        }
+                        board[newPos.x, newPos.y] = board[oldPos.x, oldPos.y];
+                        board[oldPos.x, oldPos.y] = null;
+                        board[newPos.x, newPos.y].transform.position = BoardHandler.toWorldPos(newPos);
                     }
                 } else {
                     Move newMove = new Move(board[oldPos.x, oldPos.y], board[newPos.x, newPos.y], oldPos, newPos, !fig.WasMoved);
@@ -238,6 +256,7 @@ namespace Assets {
 
                 }
                 moves.Remove(last);
+                last.Clear();
                 changeTurn();
             }
         }
@@ -426,13 +445,8 @@ namespace Assets {
                             foreach(Vector2Int move in moves) {
                                 if (board[move.x, move.y]!=null) {
                                     Figure fig2 = board[move.x, move.y].GetComponent<Figure>();
-                                    if(fig.Type == TypeFigure.King && fig2.team == fig.team) {
-                                        moveFigure(new Vector2Int(i, j), move);
-                                        if (isCheck(t)) {
-                                            undoMove();
-                                            return true;
-                                        }
-                                        undoMove();
+                                    if(fig.Type == TypeFigure.King && fig2.team == fig.team) {//rokirovka
+                                        continue;
                                     }
                                     if (fig2.Type == TypeFigure.King) {
                                         return true;
@@ -591,10 +605,14 @@ namespace Assets {
                     finishGame();
                 }
             }
+            if (imThinking) {
+                GUI.Label(new Rect(300, 50, 300, 300), "I'm thinking. Wait please");
+            }
         }
 
         private void startGame() {
             moves = new List< List<Move> >();
+            moveCells = new List<GameObject>();
             isPlaying = true;
             isBotPlaying = false;
             makesMove = Team.WHITE;
@@ -634,6 +652,7 @@ namespace Assets {
         }
         private void startBotGame() {
             moves = new List< List<Move> >();
+            moveCells = new List<GameObject>();
             isPlaying = true;
             isBotPlaying = true;
             makesMove = Team.WHITE;
@@ -769,20 +788,17 @@ namespace Assets {
                     if (Input.GetMouseButtonDown(0) && isSelected) {
                         foreach (Vector2Int move in correctMoves) {
                             if (cell.Equals(move)) {
-                                isSelected = false;
-                                foreach (GameObject moveCell in moveCells) {
-                                    Destroy(moveCell);
-                                }
-                                moveCells.Clear();
-
                                 moveFigure(selectedFigure, cell);
-                                Debug.Log("\n After move");
-                                logTheBoard();
-                                checkWon();
-                                Debug.Log("After check");
-                                logTheBoard();
+                                if (isBotPlaying) {
+                                    imThinking = true;
+                                }
                             }
                         }
+                        isSelected = false;
+                        foreach (GameObject moveCell in moveCells) {
+                            Destroy(moveCell);
+                        }
+                        moveCells.Clear();
                     }
                 }
 
@@ -824,6 +840,7 @@ namespace Assets {
                 } else {
                     Move m = determineBestBotMove();
                     moveFigure(m.OldPoint,m.EndPoint);
+                    imThinking = false;
                     checkWon();
                     //changeTurn();
                 }
