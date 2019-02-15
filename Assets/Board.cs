@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Assets {
     internal class Board : MonoBehaviour {
         private GameObject[,] board;
-        private List<Move> moves;
+        private List< List<Move> > moves;
         [SerializeField] private GameObject whitePawnPrefab;
         [SerializeField] private GameObject whiteRookPrefab;
         [SerializeField] private GameObject whiteKnightPrefab;
@@ -176,64 +176,72 @@ namespace Assets {
 
         public void moveFigure(Vector2Int oldPos, Vector2Int newPos) {
             if (newPos.x >= 0 && newPos.x < 8 && newPos.y >= 0 && newPos.y < 8 && board[oldPos.x, oldPos.y] != null) {
+                List<Move> doubleMove = new List<Move>();
                 Figure fig = board[oldPos.x, oldPos.y].GetComponent<Figure>();
-                Move newMove = new Move(board[oldPos.x, oldPos.y], board[newPos.x, newPos.y], oldPos, newPos,!fig.WasMoved);
-                moves.Add(newMove);
-
-                fig.WasMoved = true;
-                if (board[newPos.x, newPos.y] != null) {
-                   /* Figure figNew = board[newPos.x, newPos.y].GetComponent<Figure>();
-                    if (figNew.Type == TypeFigure.King) {
-                        isPlaying = false;
-                        isFinished = true;
-                        if (figNew.team == Team.BLACK) {
-                            winner = "White";
+                if (board[newPos.x, newPos.y] != null && fig.Type == TypeFigure.King) {
+                    Figure fig2 = board[newPos.x, newPos.y].GetComponent<Figure>();
+                    if (fig2.Type == TypeFigure.Rook && fig2.team == fig.team) {
+                        if (newPos.x == 7) {
+                            doubleMove = new List<Move>();
+                            doubleMove.Add(new Move(board[oldPos.x, oldPos.y], board[6, oldPos.y], oldPos, new Vector2Int(6, oldPos.y), true));
+                            doubleMove.Add(new Move(board[newPos.x, newPos.y], board[5, oldPos.y], newPos, new Vector2Int(5, oldPos.y), true));
+                            moves.Add(doubleMove);
+                            fig.WasMoved = true;
+                            fig2.WasMoved = true;
+                            board[6, oldPos.y] = board[oldPos.x, oldPos.y];
+                            board[6, oldPos.y].transform.position = BoardHandler.toWorldPos(new Vector2Int(6, oldPos.y));
+                            board[5, oldPos.y] = board[newPos.x, newPos.y];
+                            board[5, oldPos.y].transform.position = BoardHandler.toWorldPos(new Vector2Int(5, oldPos.y));
                         } else {
-                            winner = "Black";
+                            doubleMove = new List<Move>();
+                            doubleMove.Add(new Move(board[oldPos.x, oldPos.y], board[2, oldPos.y], oldPos, new Vector2Int(2, oldPos.y), true));
+                            doubleMove.Add(new Move(board[newPos.x, newPos.y], board[3, oldPos.y], newPos, new Vector2Int(3, oldPos.y), true));
+                            moves.Add(doubleMove);
+                            fig.WasMoved = true;
+                            fig2.WasMoved = true;
+                            board[2, oldPos.y] = board[oldPos.x, oldPos.y];
+                            board[2, oldPos.y].transform.position = BoardHandler.toWorldPos(new Vector2Int(2, oldPos.y));
+                            board[3, oldPos.y] = board[newPos.x, newPos.y];
+                            board[3, oldPos.y].transform.position = BoardHandler.toWorldPos(new Vector2Int(3, oldPos.y));
                         }
-                    }*/
-                    board[newPos.x, newPos.y].SetActive(false);
+                    }
+                } else {
+                    Move newMove = new Move(board[oldPos.x, oldPos.y], board[newPos.x, newPos.y], oldPos, newPos, !fig.WasMoved);
+
+                    doubleMove.Add(newMove);
+                    moves.Add(doubleMove);
+
+                    fig.WasMoved = true;
+                    if (board[newPos.x, newPos.y] != null) {
+                        board[newPos.x, newPos.y].SetActive(false);
+                    }
+                    board[newPos.x, newPos.y] = board[oldPos.x, oldPos.y];
+                    board[oldPos.x, oldPos.y] = null;
+                    board[newPos.x, newPos.y].transform.position = BoardHandler.toWorldPos(newPos);
                 }
-                board[newPos.x, newPos.y] = board[oldPos.x, oldPos.y];
-                board[oldPos.x, oldPos.y] = null;
-                board[newPos.x, newPos.y].transform.position = BoardHandler.toWorldPos(newPos);
                 changeTurn();
             }
         }
         public void undoMove() {
-            Move[] m = moves.ToArray();
-            if (m.Length != 0) {
-                Move last = m[m.Length - 1];
-                if (last.Beaten != null) {
-                    last.Beaten.SetActive(true);
-                }
-                Figure fig = last.Moved.GetComponent<Figure>();
-                fig.WasMoved = !last.IsFirstTimeMoved;
-                board[last.EndPoint.x, last.EndPoint.y] = last.Beaten;
-                board[last.OldPoint.x, last.OldPoint.y] = last.Moved;
+            if (moves.Count != 0) {
+                List<Move> last = moves[moves.Count - 1];
+                foreach(Move move in last){
+                    if (move.Beaten != null) {
+                        move.Beaten.SetActive(true);
+                    }
+                    Figure fig = move.Moved.GetComponent<Figure>();
+                    fig.WasMoved = !move.IsFirstTimeMoved;
+                    board[move.EndPoint.x, move.EndPoint.y] = move.Beaten;
+                    board[move.OldPoint.x, move.OldPoint.y] = move.Moved;
 
-                last.Moved.transform.position = BoardHandler.toWorldPos(last.OldPoint);
+                    move.Moved.transform.position = BoardHandler.toWorldPos(move.OldPoint);
+
+                }
                 moves.Remove(last);
                 changeTurn();
             }
         }
-        /*public void checkWon() {
-            Move[] m = moves.ToArray();
-            if (m.Length > 0) {
-                if (m[m.Length - 1].Beaten != null) {
-                    Figure f = m[m.Length - 1].Beaten.GetComponent<Figure>();
-                    if (f.Type == TypeFigure.King) {
-                        if (f.team == Team.BLACK) {
-                            winner = "White";
-                        } else {
-                            winner = "Black";
-                        }
-                        isFinished = true;
-                        isPlaying = false;
-                    }
-                }
-            }
-        }*/
+       
 
         public void checkWon() {
             if (isMate(Team.WHITE)) {
@@ -258,121 +266,7 @@ namespace Assets {
         }
 
 
-        /*public List<Vector2Int> determineMoves(Vector2Int movingPos) {
-            List<Vector2Int> correctMoves = new List<Vector2Int>();
-            GameObject moving = board[movingPos.x, movingPos.y];
-            Figure figMoving = moving.GetComponent<Figure>();
-            Vector2Int[] moves = figMoving.Moves;
-            if (moves != null) {
-
-                for (int i = 0; i < moves.Length; i++) {
-                    if ((moves[i] + movingPos).x < 0 || (moves[i] + movingPos).x > 7 || (moves[i] + movingPos).y < 0 || (moves[i] + movingPos).y > 7) {
-                        continue;
-                    }
-                    if (board[(moves[i] + movingPos).x, (moves[i] + movingPos).y] != null) {
-                        Figure figtemp = board[(moves[i] + movingPos).x, (moves[i] + movingPos).y].GetComponent<Figure>();
-                        if (figtemp.team == figMoving.team) {
-                            continue;
-                        }
-
-                    }
-                    moveFigure(movingPos, moves[i] + movingPos);
-                    if (isCheck(figMoving.team)) {
-                        undoMove();
-                        continue;
-                    }
-                    undoMove();
-                    correctMoves.Add(moves[i] + movingPos);
-                }
-
-
-            }
-
-
-
-            if (figMoving.VectorMoves != null) {
-                Vector2Int[] vMoves = figMoving.VectorMoves;
-                for (int i = 0; i < vMoves.Length; i++) {
-                    Vector2Int step = vMoves[i];
-                    if (step.x != 0) {
-                        step.x /= Math.Abs(step.x);
-                    }
-                    if (step.y != 0) {
-                        step.y /= Math.Abs(step.y);
-                    }
-                    int num = 1;
-                    while (step * num != vMoves[i]) {
-                        if ((movingPos + step * num).x < 0 || (movingPos + step * num).x > 7 ||
-                            (movingPos + step * num).y < 0 || (movingPos + step * num).y > 7) {
-                            break;
-                        }
-                        if (board[(movingPos + step * num).x, (movingPos + step * num).y] != null) {
-                            Figure figtemp = board[(movingPos + step * num).x, (movingPos + step * num).y].GetComponent<Figure>();
-                            if (figtemp.team == figMoving.team || figMoving.Type == TypeFigure.Pawn) {
-                                break;
-                            }
-                            moveFigure(movingPos, movingPos + step * num);
-                            if (isCheck(figMoving.team)) {
-                                undoMove();
-                                continue;
-                            }
-                            undoMove();
-                            correctMoves.Add((movingPos + step * num));
-                            break;
-                        }
-                        moveFigure(movingPos, movingPos + step * num);
-                        if (isCheck(figMoving.team)) {
-                            undoMove();
-                            break;
-                        }
-                        undoMove();
-                        correctMoves.Add((movingPos + step * num));
-                        num++;
-                    }
-                }
-            }
-            if (!figMoving.WasMoved && figMoving.Type == TypeFigure.Pawn) {
-                Vector2Int additional = new Vector2Int(0, 2);
-                if (figMoving.team == Team.BLACK) {
-                    additional *= -1;
-                }
-                additional += movingPos;
-                if (board[additional.x, additional.y] == null) {
-                    moveFigure(movingPos, additional);
-                    if (!isCheck(figMoving.team)) {
-                        correctMoves.Add(additional);
-                    }
-                    undoMove();
-
-
-
-                }
-            }
-
-            if (figMoving.AttackMoves != null) {
-                Vector2Int[] attackMoves = figMoving.AttackMoves;
-
-                for (int i = 0; i < attackMoves.Length; i++) {
-                    if ((attackMoves[i] + movingPos).x < 0 || (attackMoves[i] + movingPos).x > 7 || (attackMoves[i] + movingPos).y < 0 || (attackMoves[i] + movingPos).y > 7) {
-                        continue;
-                    }
-                    if (board[(attackMoves[i] + movingPos).x, (attackMoves[i] + movingPos).y] != null) {
-                        Figure figtemp = board[(attackMoves[i] + movingPos).x, (attackMoves[i] + movingPos).y].GetComponent<Figure>();
-                        if (figtemp.team != figMoving.team) {
-                            moveFigure(movingPos, attackMoves[i] + movingPos);
-                            if (isCheck(figMoving.team)) {
-                                undoMove();
-                                continue;
-                            }
-                            undoMove();
-                            correctMoves.Add(attackMoves[i] + movingPos);
-                        }
-                    }
-
-                }
-            }
-            return correctMoves;
-        }*/
+     
 
         public List<Vector2Int> determineMoves(Vector2Int movingPos) {
             List<Vector2Int> correctNoCheckMoves = determineMovesNoCheck(movingPos);
@@ -412,7 +306,34 @@ namespace Assets {
 
             }
 
-
+            if(figMoving.Type == TypeFigure.King && figMoving.team == Team.WHITE && !figMoving.WasMoved) {
+                if(board[7,0] != null) {
+                    Figure rFig = board[7, 0].GetComponent<Figure>();
+                    if(!rFig.WasMoved && board[6,0] == null && board[5, 0] == null) {
+                        correctMoves.Add(new Vector2Int(7, 0));
+                    }
+                }
+                if (board[0, 0] != null) {
+                    Figure rFig = board[0, 0].GetComponent<Figure>();
+                    if (!rFig.WasMoved && board[2, 0] == null && board[3, 0] == null && board[1, 0] == null) {
+                        correctMoves.Add(new Vector2Int(0, 0));
+                    }
+                }
+            }
+            if (figMoving.Type == TypeFigure.King && figMoving.team == Team.BLACK && !figMoving.WasMoved) {
+                if (board[7, 7] != null) {
+                    Figure rFig = board[7, 7].GetComponent<Figure>();
+                    if (!rFig.WasMoved && board[6, 7] == null && board[5, 7] == null) {
+                        correctMoves.Add(new Vector2Int(7, 0));
+                    }
+                }
+                if (board[0, 7] != null) {
+                    Figure rFig = board[0, 7].GetComponent<Figure>();
+                    if (!rFig.WasMoved && board[2, 7] == null && board[3, 7] == null && board[1, 7] == null) {
+                        correctMoves.Add(new Vector2Int(0, 7));
+                    }
+                }
+            }
 
             if (figMoving.VectorMoves != null) {
                 Vector2Int[] vMoves = figMoving.VectorMoves;
@@ -477,16 +398,16 @@ namespace Assets {
         public void changeTurn() {
             if (makesMove == Team.WHITE) {
                 makesMove = Team.BLACK;
-                Camera.main.transform.position = new Vector3(0, 4.9f, 6.4f);
+                Camera.main.transform.position = new Vector3(0, 7.9f, 6.4f);
                 Vector3 rotation = Camera.main.transform.rotation.eulerAngles;
-                rotation.x = 135;
+                rotation.x = 125;
                 rotation.y = 0;
                 rotation.z = 180;
                 Camera.main.transform.rotation = Quaternion.Euler(rotation);
             } else {
-                Camera.main.transform.position = new Vector3(0, 4.9f, -6.4f);
+                Camera.main.transform.position = new Vector3(0, 7.9f, -6.4f);
                 Vector3 rotation = Camera.main.transform.rotation.eulerAngles;
-                rotation.x = 45;
+                rotation.x = 55;
                 rotation.y = 0;
                 rotation.z = 0;
                 Camera.main.transform.rotation = Quaternion.Euler(rotation);
@@ -505,6 +426,14 @@ namespace Assets {
                             foreach(Vector2Int move in moves) {
                                 if (board[move.x, move.y]!=null) {
                                     Figure fig2 = board[move.x, move.y].GetComponent<Figure>();
+                                    if(fig.Type == TypeFigure.King && fig2.team == fig.team) {
+                                        moveFigure(new Vector2Int(i, j), move);
+                                        if (isCheck(t)) {
+                                            undoMove();
+                                            return true;
+                                        }
+                                        undoMove();
+                                    }
                                     if (fig2.Type == TypeFigure.King) {
                                         return true;
                                     }
@@ -521,8 +450,7 @@ namespace Assets {
 
         public bool isMate(Team forTeam) {
             List<Move> all = allMoves(forTeam);
-            Move[] m = all.ToArray();
-            return (m.Length == 0);
+            return (all.Count == 0);
         }
 
         public int evaluateBoard() {
@@ -540,6 +468,17 @@ namespace Assets {
                 
             }
             return res;
+        }
+
+        public static List<T> mixList<T>(List<T> list) {
+            System.Random r = new System.Random();
+            for(int i = 0; i < list.Count; i++) {
+                int rand = r.Next(list.Count);
+                T temp = list[rand];
+                list[rand] = list[i];
+                list[i] = temp;
+            }
+            return list;
         }
         public List<Move> allMoves(Team forTeam) {
             List<Move> all = new List<Move>();
@@ -559,6 +498,7 @@ namespace Assets {
                 }
 
             }
+            all = mixList<Move>(all);
             return all;
         }
         public int minimax(int depth,int alpha, int beta, bool isMaximizing) {
@@ -567,10 +507,9 @@ namespace Assets {
             }
             if (isMaximizing) {
                 List<Move> all = allMoves(Team.BLACK);
-                Move[] m = all.ToArray();
                 int max = int.MinValue;
-                for (int i = 0; i < m.Length; i++) {
-                    moveFigure(m[i].OldPoint, m[i].EndPoint);
+                for (int i = 0; i < all.Count; i++) {
+                    moveFigure(all[i].OldPoint, all[i].EndPoint);
                     if (isMate(Team.WHITE)) {
                         undoMove();
                         return Convert.ToInt32(TypeFigure.King);
@@ -585,10 +524,9 @@ namespace Assets {
                 return max;
             } else {
                 List<Move> all = allMoves(Team.WHITE);
-                Move[] m = all.ToArray();
                 int min = int.MaxValue;
-                for (int i = 0; i < m.Length; i++) {
-                    moveFigure(m[i].OldPoint, m[i].EndPoint);
+                for (int i = 0; i < all.Count; i++) {
+                    moveFigure(all[i].OldPoint, all[i].EndPoint);
                     if (isMate(Team.WHITE)) {
                         undoMove();
                         return -Convert.ToInt32(TypeFigure.King);
@@ -606,14 +544,13 @@ namespace Assets {
         }
         public Move determineBestBotMove() {
             List<Move> all = allMoves(Team.BLACK);
-            Move[] m = all.ToArray();
             //System.Random r = new System.Random();
             //return m[r.Next(m.Length)];         /** Random move**/
             int maxi = 0;
             int max = int.MinValue;
             
-            for(int i = 0; i < m.Length; i++) {
-                moveFigure(m[i].OldPoint, m[i].EndPoint);
+            for(int i = 0; i < all.Count; i++) {
+                moveFigure(all[i].OldPoint, all[i].EndPoint);
                 int eval = minimax(MINIMAX_DEPTH-1,int.MinValue,int.MaxValue,false);
                 if (eval > max) {
                     max = eval;
@@ -621,7 +558,7 @@ namespace Assets {
                 }
                 undoMove();
             }
-            return m[maxi];
+            return all[maxi];
 
         }
 
@@ -657,13 +594,13 @@ namespace Assets {
         }
 
         private void startGame() {
-            moves = new List<Move>();
+            moves = new List< List<Move> >();
             isPlaying = true;
             isBotPlaying = false;
             makesMove = Team.WHITE;
-            Camera.main.transform.position = new Vector3(0, 4.9f, -6.4f);
+            Camera.main.transform.position = new Vector3(0, 7.9f, -6.4f);
             Vector3 rotation = Camera.main.transform.rotation.eulerAngles;
-            rotation.x = 45;
+            rotation.x =55;
             rotation.y = 0;
             rotation.z = 0;
             Camera.main.transform.rotation = Quaternion.Euler(rotation);
@@ -696,13 +633,13 @@ namespace Assets {
             isSelected = false;
         }
         private void startBotGame() {
-            moves = new List<Move>();
+            moves = new List< List<Move> >();
             isPlaying = true;
             isBotPlaying = true;
             makesMove = Team.WHITE;
-            Camera.main.transform.position = new Vector3(0, 4.9f, -6.4f);
+            Camera.main.transform.position = new Vector3(0, 7.9f, -6.4f);
             Vector3 rotation = Camera.main.transform.rotation.eulerAngles;
-            rotation.x = 45;
+            rotation.x = 55;
             rotation.y = 0;
             rotation.z = 0;
             Camera.main.transform.rotation = Quaternion.Euler(rotation);
@@ -782,6 +719,23 @@ namespace Assets {
             isSelected = false;*/
         }
 
+        private void logTheBoard() {
+            for(int i = 7; i >= 0; i--) {
+                string s="";
+                for(int j = 0; j < 7; j++) {
+                    string sym = "|";
+                    if (board[j,i] != null) {
+                        Figure fig = board[j, i].GetComponent<Figure>();
+                        sym += Convert.ToString(fig.Type);
+                    } else {
+                        sym += " ";
+                    }
+                    s += sym;  
+                }
+                Debug.Log(s);
+            }
+        }
+
         private void handleUserUpdate() {
             Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
 
@@ -820,8 +774,13 @@ namespace Assets {
                                     Destroy(moveCell);
                                 }
                                 moveCells.Clear();
+
                                 moveFigure(selectedFigure, cell);
+                                Debug.Log("\n After move");
+                                logTheBoard();
                                 checkWon();
+                                Debug.Log("After check");
+                                logTheBoard();
                             }
                         }
                     }
@@ -856,9 +815,9 @@ namespace Assets {
             if(isPlaying && isBotPlaying) {
                 if(makesMove == Team.WHITE) {
                     handleUserUpdate();
-                    Camera.main.transform.position = new Vector3(0, 4.9f, -6.4f);
+                    Camera.main.transform.position = new Vector3(0, 7.9f, -6.4f);
                     Vector3 rotation = Camera.main.transform.rotation.eulerAngles;
-                    rotation.x = 45;
+                    rotation.x = 55;
                     rotation.y = 0;
                     rotation.z = 0;
                     Camera.main.transform.rotation = Quaternion.Euler(rotation);
