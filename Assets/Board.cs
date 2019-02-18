@@ -343,7 +343,7 @@ namespace Assets {
                 if (board[7, 7] != null) {
                     Figure rFig = board[7, 7].GetComponent<Figure>();
                     if (!rFig.WasMoved && board[6, 7] == null && board[5, 7] == null) {
-                        correctMoves.Add(new Vector2Int(7, 0));
+                        correctMoves.Add(new Vector2Int(7, 7));
                     }
                 }
                 if (board[0, 7] != null) {
